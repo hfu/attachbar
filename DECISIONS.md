@@ -156,3 +156,44 @@ so Pages skips Jekyll processing.
 **Consequence**: `docs/` must be rebuilt and re-committed manually after
 source changes (`npm run build` or `npm run build:docs`) — there is no CI
 step doing this automatically yet.
+
+---
+
+## D8: Sidebar thickness becomes JS-owned to fix top-left corner collisions
+
+**Date**: 2026-07-03
+
+**Context**: HANDOVER.md §8/§11 flagged "deterministic corner handling
+policy" as a requirement with no implemented mitigation. Verified the gap
+concretely: the top and left sidebars are DOM siblings covering the same
+top-left rectangle (`left` is appended after `top`, so it paints over
+it), and a "top" label with `pixel.x` inside the left sidebar's width (or
+a "left" label with `pixel.y` inside the top sidebar's height) rendered
+underneath the other sidebar's translucent background — visually faded
+or clipped. Confirmed via a live screenshot before fixing.
+
+The root cause was that sidebar pixel size was 100% author-CSS-owned
+(`.attachbar-sidebar--top { height: 32px }` in `index.html`) and
+invisible to the JS layer, so `renderLabels` had no way to know where the
+"other" sidebar's territory started. `index.html` already carried a
+comment flagging this as fragile ("keep in sync with createAttachbar
+sidebar height/width").
+
+**Decision**: Added `AttachbarOptions.sidebarSize` (default `{ top: 32,
+bottom: 32, left: 48, right: 48 }`). `createSidebars` now sets each
+sidebar's `width`/`height` via inline style directly (author CSS only
+handles background/border/font), and stamps the resolved size onto
+`el.dataset.attachbarSize`. `renderLabels` reads those dataset values
+back to reserve the top-left corner: a "top" anchor whose x falls inside
+the left sidebar's width is dropped, and vice versa for "left" anchors
+inside the top sidebar's height (only when both sidebars are actually
+present).
+
+Right/bottom corners are intentionally not handled yet — they need the
+container's total width/height, which isn't shipped in Phase 1 (D3).
+
+**Consequence**: Custom sidebar sizes must now go through
+`AttachbarOptions.sidebarSize`, not CSS `height`/`width` overrides on
+`.attachbar-sidebar--*` (CSS can still override background, border,
+font, etc.). This removes the CSS/JS sync hazard entirely instead of
+papering over it.

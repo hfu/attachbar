@@ -91,7 +91,7 @@ export function createAttachbar({
   const sides = options.sides ?? ["top", "left"];
   const minPixelSpacing = options.minPixelSpacing ?? 40;
 
-  const sidebarElements: SidebarElements = createSidebars(container, sides);
+  const sidebarElements: SidebarElements = createSidebars(container, sides, options.sidebarSize);
 
   function update(): void {
     const bounds = map.getBounds();

@@ -79,6 +79,22 @@ describe("createSidebars", () => {
     expect(Object.keys(elements)).toHaveLength(4);
     cleanup(container);
   });
+
+  it("applies default sidebar sizes as inline style and dataset", () => {
+    const elements = createSidebars(container, ["top", "left"]);
+    expect(elements.top!.style.height).toBe("32px");
+    expect(elements.top!.dataset.attachbarSize).toBe("32");
+    expect(elements.left!.style.width).toBe("48px");
+    expect(elements.left!.dataset.attachbarSize).toBe("48");
+    cleanup(container);
+  });
+
+  it("applies custom sidebar sizes when provided", () => {
+    const elements = createSidebars(container, ["top", "left"], { top: 24, left: 60 });
+    expect(elements.top!.style.height).toBe("24px");
+    expect(elements.left!.style.width).toBe("60px");
+    cleanup(container);
+  });
 });
 
 describe("renderLabels", () => {
@@ -177,6 +193,54 @@ describe("renderLabels", () => {
     const label = elements.top!.querySelector<HTMLElement>(".attachbar-label")!;
     expect(label.dataset.attachbarValue).toBe("X");
     cleanup(container);
+  });
+
+  describe("corner reservation", () => {
+    it("drops a top-side label that falls inside the left sidebar's width when both exist", () => {
+      // Default sizes: left = 48px wide.
+      const elements = createSidebars(container, ["top", "left"]);
+      renderLabels(elements, [makeAnchor("top", 30, 0, "corner")], { zoom: 10 });
+      const labels = elements.top!.querySelectorAll(".attachbar-label");
+      expect(labels).toHaveLength(0);
+      cleanup(container);
+    });
+
+    it("drops a left-side label that falls inside the top sidebar's height when both exist", () => {
+      // Default sizes: top = 32px tall.
+      const elements = createSidebars(container, ["top", "left"]);
+      renderLabels(elements, [makeAnchor("left", 0, 20, "corner")], { zoom: 10 });
+      const labels = elements.left!.querySelectorAll(".attachbar-label");
+      expect(labels).toHaveLength(0);
+      cleanup(container);
+    });
+
+    it("keeps a top-side label outside the reserved corner", () => {
+      const elements = createSidebars(container, ["top", "left"]);
+      renderLabels(elements, [makeAnchor("top", 60, 0, "clear")], { zoom: 10 });
+      const labels = elements.top!.querySelectorAll(".attachbar-label");
+      expect(labels).toHaveLength(1);
+      cleanup(container);
+    });
+
+    it("does not reserve a corner when only one of the two sidebars exists", () => {
+      const elements = createSidebars(container, ["top"]);
+      renderLabels(elements, [makeAnchor("top", 5, 0, "no-left-sidebar")], { zoom: 10 });
+      const labels = elements.top!.querySelectorAll(".attachbar-label");
+      expect(labels).toHaveLength(1);
+      cleanup(container);
+    });
+
+    it("respects a custom sidebarSize when reserving the corner", () => {
+      const elements = createSidebars(container, ["top", "left"], { left: 10 });
+      // x=30 would have been reserved under the default 48px left sidebar,
+      // but the custom 10px size no longer covers it.
+      renderLabels(elements, [makeAnchor("top", 30, 0, "clear-with-custom-size")], {
+        zoom: 10,
+      });
+      const labels = elements.top!.querySelectorAll(".attachbar-label");
+      expect(labels).toHaveLength(1);
+      cleanup(container);
+    });
   });
 });
 

@@ -122,6 +122,7 @@ type AttachbarSide = "top" | "left" | "right" | "bottom";
 interface AttachbarOptions {
   sides: AttachbarSide[];
   minPixelSpacing?: number;
+  sidebarSize?: Partial<Record<AttachbarSide, number>>;
   formatter?: (value: unknown, ctx: { side: AttachbarSide; zoom: number }) => string;
   visibility?: (ctx: { zoom: number; side: AttachbarSide }) => boolean;
 }
@@ -160,7 +161,7 @@ declare function createAttachbar(params: {
 - Ensure idempotent redraws (no DOM leak / duplicate nodes)
 - Min pixel spacing rule to avoid overcrowding
 - Stable behavior during continuous zoom and resize
-- Deterministic corner handling policy (documented and tested)
+- Deterministic corner handling policy (documented and tested) ✅ — top-left corner is reserved for the left sidebar; see DECISIONS.md D8
 
 ---
 
@@ -215,7 +216,7 @@ declare function createAttachbar(params: {
   **Mitigation**: throttled updates + minimal DOM diff strategy.
 
 - **Risk**: ambiguous corner/collision behavior  
-  **Mitigation**: explicit policy with test coverage.
+  **Mitigation**: explicit policy with test coverage (D8) — resolved for top-left; right/bottom deferred to M4.
 
 ---
 

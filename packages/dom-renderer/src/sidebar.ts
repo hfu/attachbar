@@ -3,6 +3,14 @@ import type { AttachbarSide, AttachbarOptions, PixelAnchor } from "@attachbar/co
 /** Map from side name to the sidebar HTMLElement. */
 export type SidebarElements = Partial<Record<AttachbarSide, HTMLElement>>;
 
+/** Default pixel thickness for each sidebar strip (overridable via `AttachbarOptions.sidebarSize`). */
+export const DEFAULT_SIDEBAR_SIZE: Record<AttachbarSide, number> = {
+  top: 32,
+  bottom: 32,
+  left: 48,
+  right: 48,
+};
+
 const SIDEBAR_BASE_STYLES: CSSStyleDeclaration["cssText"] = "";
 
 const SIDEBAR_SIDE_STYLES: Record<AttachbarSide, Partial<CSSStyleDeclaration>> =
@@ -48,7 +56,8 @@ const SIDEBAR_SIDE_STYLES: Record<AttachbarSide, Partial<CSSStyleDeclaration>> =
  */
 export function createSidebars(
   container: HTMLElement,
-  sides: AttachbarSide[]
+  sides: AttachbarSide[],
+  sidebarSize: Partial<Record<AttachbarSide, number>> = {}
 ): SidebarElements {
   const computed = getComputedStyle(container);
   // jsdom returns "" for unset styles; browsers report "static" — handle both
@@ -70,6 +79,17 @@ export function createSidebars(
     ][]) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (el.style as any)[key] = value;
+    }
+
+    // The sidebar's thickness is JS-owned (not left to author CSS) so
+    // renderLabels can reliably reserve the corner shared with a
+    // perpendicular sidebar — see DECISIONS.md D8.
+    const size = sidebarSize[side] ?? DEFAULT_SIDEBAR_SIZE[side];
+    el.dataset.attachbarSize = String(size);
+    if (side === "top" || side === "bottom") {
+      el.style.height = `${size}px`;
+    } else {
+      el.style.width = `${size}px`;
     }
 
     container.appendChild(el);
@@ -104,9 +124,22 @@ export function renderLabels(
     el.innerHTML = "";
   }
 
+  // Reserve the top-left corner for the left sidebar: sidebars are DOM
+  // siblings painted in creation order, so without this a "top" label
+  // near x=0 (or a "left" label near y=0) would render behind the other
+  // sidebar's own background. Only top-left is handled — right/bottom
+  // aren't shipped yet (see HANDOVER.md §4 Phase 1 scope). See
+  // DECISIONS.md D8.
+  const leftSize = Number(elements.left?.dataset.attachbarSize ?? 0);
+  const topSize = Number(elements.top?.dataset.attachbarSize ?? 0);
+
   for (const anchor of anchors) {
     const container = elements[anchor.side];
     if (!container) continue;
+
+    const [px, py] = anchor.pixel;
+    if (anchor.side === "top" && leftSize > 0 && px < leftSize) continue;
+    if (anchor.side === "left" && topSize > 0 && py < topSize) continue;
 
     if (opts.visibility) {
       if (!opts.visibility({ zoom: opts.zoom, side: anchor.side })) continue;
@@ -122,7 +155,6 @@ export function renderLabels(
     label.style.position = "absolute";
     label.style.transform = "translate(-50%, -50%)";
 
-    const [px, py] = anchor.pixel;
     if (anchor.side === "top" || anchor.side === "bottom") {
       label.style.left = `${px}px`;
       label.style.top = "50%";

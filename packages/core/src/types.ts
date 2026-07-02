@@ -11,6 +11,14 @@ export interface AttachbarOptions {
   sides: AttachbarSide[];
   /** Minimum pixel distance between two labels on the same side. Default: 40. */
   minPixelSpacing?: number;
+  /**
+   * Pixel thickness of each sidebar strip, keyed by side. Defaults to 32
+   * for top/bottom and 48 for left/right. This also defines the corner
+   * box reserved for a perpendicular sidebar (e.g. a "top" label near
+   * x=0 is dropped if a "left" sidebar occupies that space), so it
+   * should match the visual size implied by any custom sidebar CSS.
+   */
+  sidebarSize?: Partial<Record<AttachbarSide, number>>;
   /** Custom formatter for converting a spatial value to a display string. */
   formatter?: (
     value: unknown,
