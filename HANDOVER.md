@@ -182,9 +182,21 @@ declare function createAttachbar(params: {
 - DOM rendering loop
 
 ### M2: MGRS integration proof
-- real provider for MGRS-oriented anchors
-- interval-midpoint strategy support
-- basic spacing/visibility controls
+- real provider for MGRS-oriented anchors ✅
+  - `examples/mgrs-pmtiles/src/mgrs-source-provider.ts` — `MgrsSourceProvider`
+    reuses the same martin-served MGRS vector tiles mgrs-pmtiles renders
+    in-map (`https://tunnel.optgeo.org/martin/mgrs-hokkaido`) as its source
+    of truth, reading the pre-generated `mgrs_{10km,1km,100m}_label_{e,n}`
+    point layers instead of re-deriving grid geometry. mgrs-pmtiles' own
+    `web/main.js` (screen-position edge-detection hack) is left untouched —
+    this is the "after" to its "before".
+  - Verified against the live endpoint at zoom 9 (10km), 12 (1km), and 16
+    (100m): correct sequential grid values render in the top/left sidebars,
+    nothing renders below the 10km band's minzoom (8), and resize keeps
+    working. No in-map grid is drawn — only the loader layers (opacity 0)
+    needed to make MapLibre fetch tiles.
+- basic spacing/visibility controls ✅ (`minPixelSpacing: 60`, `visibility: zoom >= 8`, tuned empirically against the real tileset)
+- interval-midpoint strategy: not needed — real tile data already supplies exact grid-line-crossing points, so only the "intersections" branch of the pipeline (§5.1 step 4) is exercised
 
 ### M3: Hardening
 - resize/zoom stress stability
@@ -225,8 +237,11 @@ declare function createAttachbar(params: {
 2. ~~Add monorepo/package skeleton~~ ✅
 3. ~~Commit this `HANDOVER.md`~~ ✅
 4. ~~Implement M1 with mock provider~~ ✅
-5. Wire M2 against `mgrs-pmtiles` integration example
-6. Iterate API from real usage feedback
+5. ~~Wire M2 against `mgrs-pmtiles` integration example~~ ✅ (real provider reading the live martin tileset; `mgrs-pmtiles`'s own repo/UI untouched)
+6. Iterate API from real usage feedback:
+   - decide whether the 100km band needs edge labels too, or stays centroid-only (matches mgrs-pmtiles' own `centroidLabelSpecs`, which has no edge variant)
+   - consider making `MgrsSourceProvider` generic enough to promote out of `examples/` if a second consumer appears (currently intentionally example-scoped per §11 risk mitigation)
+7. M3 hardening: resize/zoom stress beyond the manual spot-check done here, API cleanup, packaging for external consumption
 
 ---
 
