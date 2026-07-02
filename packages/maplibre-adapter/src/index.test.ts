@@ -282,6 +282,71 @@ describe("createAttachbar", () => {
     cleanup(container);
   });
 
+  it("collapses a burst of move events into a single throttled update", () => {
+    vi.useFakeTimers();
+    try {
+      const provider = makeProvider();
+      const map = makeMapStub();
+
+      const attachbar = createAttachbar({
+        map: map as never,
+        container,
+        provider,
+        options: { sides: ["top"] },
+      });
+
+      const callsAfterInitialRender = (provider.getAnchors as ReturnType<typeof vi.fn>).mock
+        .calls.length;
+
+      // A rapid burst of move events within one throttle window.
+      map.emit("move");
+      map.emit("move");
+      map.emit("move");
+
+      vi.advanceTimersByTime(50);
+
+      expect(
+        (provider.getAnchors as ReturnType<typeof vi.fn>).mock.calls.length
+      ).toBe(callsAfterInitialRender + 1);
+
+      attachbar.destroy();
+      cleanup(container);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("cancels a pending throttled update on destroy so it does not fire afterward", () => {
+    vi.useFakeTimers();
+    try {
+      const provider = makeProvider();
+      const map = makeMapStub();
+
+      const attachbar = createAttachbar({
+        map: map as never,
+        container,
+        provider,
+        options: { sides: ["top"] },
+      });
+
+      const callsBeforeDestroy = (provider.getAnchors as ReturnType<typeof vi.fn>).mock.calls
+        .length;
+
+      // Schedule a throttled update, then tear down before it fires.
+      map.emit("move");
+      attachbar.destroy();
+      cleanup(container);
+
+      vi.advanceTimersByTime(50);
+
+      expect(
+        (provider.getAnchors as ReturnType<typeof vi.fn>).mock.calls.length
+      ).toBe(callsBeforeDestroy);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("defaults to top and left sides when options are omitted", () => {
     const map = makeMapStub();
 

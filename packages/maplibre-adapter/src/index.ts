@@ -15,15 +15,20 @@ import {
 /** How many milliseconds to wait before processing a burst of map events. */
 const DEFAULT_THROTTLE_MS = 50;
 
-/** Returns a throttled version of `fn` that executes at most once per `ms`. */
+/**
+ * Returns a throttled version of `fn` that executes at most once per `ms`,
+ * plus a `cancel()` to drop any pending trailing call (e.g. on teardown, so
+ * a throttled call scheduled just before `destroy()` doesn't fire against
+ * already-removed state).
+ */
 function throttle<T extends (...args: unknown[]) => void>(
   fn: T,
   ms: number
-): T {
+): { run: T; cancel(): void } {
   let pending: ReturnType<typeof setTimeout> | null = null;
   let latestArgs: Parameters<T> | null = null;
 
-  return ((...args: Parameters<T>) => {
+  const run = ((...args: Parameters<T>) => {
     latestArgs = args;
     if (pending === null) {
       pending = setTimeout(() => {
@@ -35,6 +40,16 @@ function throttle<T extends (...args: unknown[]) => void>(
       }, ms);
     }
   }) as T;
+
+  const cancel = () => {
+    if (pending !== null) {
+      clearTimeout(pending);
+      pending = null;
+    }
+    latestArgs = null;
+  };
+
+  return { run, cancel };
 }
 
 /** Parameters for {@link createAttachbar}. */
@@ -116,7 +131,8 @@ export function createAttachbar({
     });
   }
 
-  const throttledUpdate = throttle(update as (...args: unknown[]) => void, DEFAULT_THROTTLE_MS) as typeof update;
+  const throttled = throttle(update as (...args: unknown[]) => void, DEFAULT_THROTTLE_MS);
+  const throttledUpdate = throttled.run as typeof update;
 
   map.on("move", throttledUpdate);
   map.on("zoom", throttledUpdate);
@@ -133,6 +149,8 @@ export function createAttachbar({
     map.off("move", throttledUpdate);
     map.off("zoom", throttledUpdate);
     map.off("resize", throttledUpdate);
+    map.off("load", update);
+    throttled.cancel();
     destroySidebars(container, sidebarElements);
   }
 
