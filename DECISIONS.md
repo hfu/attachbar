@@ -1,0 +1,158 @@
+# DECISIONS: attachbar
+
+A lightweight decision log. Each entry captures a choice that wasn't
+obvious from the code alone — the alternative considered and why it lost.
+For what changed and when, see [CHANGELOG.md](./CHANGELOG.md). For the
+architecture these decisions produced, see [HANDOVER.md](./HANDOVER.md).
+
+---
+
+## D1: Adopt the "egress" pattern instead of in-map annotation hacks
+
+**Date**: 2026-07-02
+
+**Context**: In `mgrs-pmtiles`, MGRS grid lines are genuine map content,
+but marginal numeric labels (top/left edge values, frame-like annotations)
+are conceptually outside map content. Rendering both as in-map layers
+mixes non-feature UI with map features, and requires screen-position
+hacks (e.g. filtering by rendered pixel margin) to fake a "frame."
+
+**Decision**: Externalize marginal annotations to a DOM layer adjacent to
+the map div, bridged by `map.project()`/`unproject()`. attachbar owns
+this bridge; the map only renders true map content.
+
+**Consequence**: attachbar is a separate, generic package rather than a
+mgrs-pmtiles-internal feature. See D4 for how far that genericness goes
+in practice.
+
+---
+
+## D2: Split into `core` / `dom-renderer` / `maplibre-adapter`
+
+**Date**: 2026-07-02
+
+**Context**: The pipeline (read map state → resolve anchors → filter →
+render) mixes three concerns with different testability needs: pure
+filtering logic, DOM manipulation, and MapLibre-specific event wiring.
+
+**Decision**: Three packages, each independently testable:
+- `core` — types + `filterAnchors`, no DOM, no MapLibre. Runs under a
+  plain `node` vitest environment.
+- `dom-renderer` — sidebar DOM lifecycle, tested under `jsdom`.
+- `maplibre-adapter` — event subscription, throttling, and the
+  `createAttachbar` entry point that composes the other two.
+
+**Consequence**: `core` can be reused by a non-DOM consumer later
+(e.g. server-side anchor computation) without pulling in jsdom or
+maplibre-gl.
+
+---
+
+## D3: Phase 1 scope is top/left only, no theming, no plugin ecosystem
+
+**Date**: 2026-07-02
+
+**Context**: mgrs-pmtiles' immediate need is top/left marginal labels.
+Building right/bottom support, a theme system, or plugin hooks before a
+single real consumer exists risks designing for requirements that don't
+exist yet.
+
+**Decision**: Phase 1 (M1–M3) supports `top`/`left` sides only. `right`/
+`bottom` are modeled in the type system (`AttachbarSide`) but not
+implemented until a concrete need appears (M4).
+
+**Consequence**: The `SpatialProvider`/`AttachbarOptions` contracts
+already accept all four sides, so M4 should be additive, not a breaking
+API change.
+
+---
+
+## D4: MGRS-specific logic stays in `examples/`, not promoted to `packages/`
+
+**Date**: 2026-07-02 (reaffirmed 2026-07-03 after the real provider landed)
+
+**Context**: attachbar's `core`/`dom-renderer`/`maplibre-adapter`
+packages are meant to stay generic (D1). MGRS is the only consumer so
+far, so any MGRS-aware code is a candidate for overfitting the public
+API to one use case.
+
+**Decision**: `MgrsSourceProvider` and all MGRS-specific logic live in
+`examples/mgrs-pmtiles/`, implementing the generic `SpatialProvider`
+contract from `@attachbar/core`. Nothing in `packages/` knows what MGRS
+is.
+
+**Consequence**: Promoting `MgrsSourceProvider` to a real package (e.g.
+`@attachbar/mgrs-provider`) is deferred until a second consumer actually
+needs it — see HANDOVER.md §13.
+
+---
+
+## D5: The real MGRS provider reuses mgrs-pmtiles' live vector tiles instead of re-deriving grid geometry
+
+**Date**: 2026-07-03
+
+**Context**: For M2, the mock provider (evenly-spaced degree lines) needed
+replacing with something that shows real MGRS values. Two approaches were
+considered:
+1. Recompute MGRS grid-line crossings independently using the `mgrs` npm
+   library (sample viewport edges, binary-search for digit-group
+   transitions).
+2. Reuse the same martin-served vector tiles
+   (`https://tunnel.optgeo.org/martin/mgrs-hokkaido`) that mgrs-pmtiles
+   already renders in-map, reading its pre-generated
+   `mgrs_{10km,1km,100m}_label_{e,n}` point layers via
+   `map.querySourceFeatures()`.
+
+Approach 1 was partially prototyped but abandoned once the user clarified
+the intent: reuse mgrs-pmtiles' existing pmtiles data as the source of
+truth, rather than recompute it.
+
+**Decision**: `MgrsSourceProvider` (approach 2) queries the live tileset
+directly. mgrs-pmtiles' own `web/main.js` — including its screen-position
+edge-detection hack for picking "near-edge" labels — is left completely
+untouched. That hack is the "before"; attachbar's external sidebars are
+the "after." The two coexist in separate repos; this repo does not modify
+`mgrs-pmtiles`.
+
+**Consequence**: attachbar's example depends on network access to the
+live martin endpoint (no offline/local fallback beyond the original mock
+provider, which is kept in the tree but no longer wired into `main.ts`).
+Grid line dedup (multiple tile instances of the same grid line) is
+handled by picking whichever loaded feature sits closest to the relevant
+edge, not by recomputing exact crossings.
+
+---
+
+## D6: No edge labels for the 100km band
+
+**Date**: 2026-07-03
+
+**Context**: Investigated whether attachbar should show 100km-resolution
+grid labels in the sidebars at low zoom.
+
+**Decision**: Not implemented — the upstream tileset only exposes
+`mgrs_100km_label_points` (centroid labels, 2-letter square ID), with no
+`_label_e`/`_label_n` edge variant, matching mgrs-pmtiles' own
+`centroidLabelSpecs` (no edge spec for 100km). There is no data to query
+for this case; revisit only if mgrs-pmtiles' tileset gains edge-oriented
+100km labels.
+
+---
+
+## D7: Publish the example via GitHub Pages from a committed `docs/` folder
+
+**Date**: 2026-07-03
+
+**Context**: Wanted a shareable, zero-infrastructure way to demo the
+example. GitHub Pages' "deploy from a branch" mode can serve a `/docs`
+folder on `main` directly, with no Actions workflow required.
+
+**Decision**: `examples/mgrs-pmtiles/vite.config.ts` builds to the
+repo-root `docs/` with `base: "./"` (relative asset paths, required
+since project pages serve from a `/attachbar/` subpath, not the domain
+root). Build output is committed, not gitignored. `.nojekyll` is included
+so Pages skips Jekyll processing.
+
+**Consequence**: `docs/` must be rebuilt and re-committed manually after
+source changes (`npm run build` or `npm run build:docs`) — there is no CI
+step doing this automatically yet.

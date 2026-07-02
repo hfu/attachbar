@@ -34,11 +34,11 @@ attachbar.destroy();  // clean up listeners and DOM
 
 ## Examples
 
-See [`examples/mgrs-pmtiles`](./examples/mgrs-pmtiles) for an M1 prototype with a mock MGRS grid provider.
+See [`examples/mgrs-pmtiles`](./examples/mgrs-pmtiles) for a live integration reading real MGRS grid labels from mgrs-pmtiles' vector tileset. Published at `docs/` via GitHub Pages.
 
 ## Architecture
 
-See [HANDOVER.md](./HANDOVER.md) for the full design document.
+See [HANDOVER.md](./HANDOVER.md) for the full design document, [DECISIONS.md](./DECISIONS.md) for the reasoning behind key choices, and [CHANGELOG.md](./CHANGELOG.md) for a running log of changes.
 
 ## Development
 

@@ -1,5 +1,9 @@
 # HANDOVER: attachbar
 
+> This is the architecture/reference doc. For *why* a given choice was
+> made, see [DECISIONS.md](./DECISIONS.md). For *what* changed and when,
+> see [CHANGELOG.md](./CHANGELOG.md).
+
 ## 1. Project overview
 
 `attachbar` is a reusable UI/component pattern that implements the **egress** concept proposed in:
@@ -103,7 +107,9 @@ packages/
   dom-renderer/      Sidebar DOM management and label placement.
   maplibre-adapter/  MapLibre event wiring + createAttachbar entry point.
 examples/
-  mgrs-pmtiles/      M1 reference integration with mock MGRS provider.
+  mgrs-pmtiles/      Reference integration reading real MGRS grid labels
+                     from mgrs-pmtiles' live vector tileset. Builds to
+                     ../../docs for GitHub Pages.
 ```
 
 ---
@@ -181,22 +187,13 @@ declare function createAttachbar(params: {
 - basic anchors from mock provider
 - DOM rendering loop
 
-### M2: MGRS integration proof
-- real provider for MGRS-oriented anchors ✅
-  - `examples/mgrs-pmtiles/src/mgrs-source-provider.ts` — `MgrsSourceProvider`
-    reuses the same martin-served MGRS vector tiles mgrs-pmtiles renders
-    in-map (`https://tunnel.optgeo.org/martin/mgrs-hokkaido`) as its source
-    of truth, reading the pre-generated `mgrs_{10km,1km,100m}_label_{e,n}`
-    point layers instead of re-deriving grid geometry. mgrs-pmtiles' own
-    `web/main.js` (screen-position edge-detection hack) is left untouched —
-    this is the "after" to its "before".
-  - Verified against the live endpoint at zoom 9 (10km), 12 (1km), and 16
-    (100m): correct sequential grid values render in the top/left sidebars,
-    nothing renders below the 10km band's minzoom (8), and resize keeps
-    working. No in-map grid is drawn — only the loader layers (opacity 0)
-    needed to make MapLibre fetch tiles.
-- basic spacing/visibility controls ✅ (`minPixelSpacing: 60`, `visibility: zoom >= 8`, tuned empirically against the real tileset)
-- interval-midpoint strategy: not needed — real tile data already supplies exact grid-line-crossing points, so only the "intersections" branch of the pipeline (§5.1 step 4) is exercised
+### M2: MGRS integration proof ✅
+- real provider for MGRS-oriented anchors, reading mgrs-pmtiles' live
+  tileset (`MgrsSourceProvider`) — see DECISIONS.md D5
+- basic spacing/visibility controls (`minPixelSpacing`, `visibility`)
+- interval-midpoint strategy: not needed in practice — real tile data
+  already supplies exact grid-line-crossing points, so only the
+  "intersections" branch of the pipeline (§5.1 step 4) is exercised
 
 ### M3: Hardening
 - resize/zoom stress stability
@@ -212,7 +209,7 @@ declare function createAttachbar(params: {
 ## 11. Risks and mitigations
 
 - **Risk**: overfitting to MGRS  
-  **Mitigation**: provider contract stays generic; MGRS lives in example/integration package.
+  **Mitigation**: provider contract stays generic; MGRS lives in example/integration package (D4).
 
 - **Risk**: performance under continuous interaction  
   **Mitigation**: throttled updates + minimal DOM diff strategy.
@@ -233,15 +230,18 @@ declare function createAttachbar(params: {
 
 ## 13. Practical next actions
 
-1. ~~Create repository `attachbar`~~ ✅
-2. ~~Add monorepo/package skeleton~~ ✅
-3. ~~Commit this `HANDOVER.md`~~ ✅
-4. ~~Implement M1 with mock provider~~ ✅
-5. ~~Wire M2 against `mgrs-pmtiles` integration example~~ ✅ (real provider reading the live martin tileset; `mgrs-pmtiles`'s own repo/UI untouched)
-6. Iterate API from real usage feedback:
-   - decide whether the 100km band needs edge labels too, or stays centroid-only (matches mgrs-pmtiles' own `centroidLabelSpecs`, which has no edge variant)
-   - consider making `MgrsSourceProvider` generic enough to promote out of `examples/` if a second consumer appears (currently intentionally example-scoped per §11 risk mitigation)
-7. M3 hardening: resize/zoom stress beyond the manual spot-check done here, API cleanup, packaging for external consumption
+1. ~~Create repository, monorepo skeleton, M1 mock provider~~ ✅
+2. ~~Wire M2 against `mgrs-pmtiles` integration example~~ ✅ — see CHANGELOG.md
+3. Iterate API from real usage feedback; promote `MgrsSourceProvider` out
+   of `examples/` only if a second consumer appears (D4)
+4. M3 hardening: resize/zoom stress beyond the manual spot-check done so
+   far, API cleanup, packaging for external consumption
+5. Switch `mgrs-pmtiles`'s own `web/main.js` from its screen-position
+   edge-detection hack to consuming `attachbar` — out of scope for this
+   repo (see D5); tracked separately
+
+New decisions belong in [DECISIONS.md](./DECISIONS.md); notable changes
+belong in [CHANGELOG.md](./CHANGELOG.md).
 
 ---
 
@@ -249,3 +249,7 @@ declare function createAttachbar(params: {
 
 This project is not "just UI decoration."  
 It is an implementation of the **egress** architectural separation and is expected to serve as reusable infrastructure for map-external annotations, with `mgrs-pmtiles` as the first concrete dependency.
+
+See also: [DECISIONS.md](./DECISIONS.md) for why things are shaped this
+way, and [CHANGELOG.md](./CHANGELOG.md) for a running log of what's
+landed.
