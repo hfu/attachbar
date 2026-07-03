@@ -30,6 +30,14 @@ reasoning behind these changes.
   on Hokkaido, and adds zero-opacity "loader" layers so MapLibre fetches
   the vector tiles without drawing an in-map grid. Verified across the
   10km/1km/100m precision bands and through a resize. (`e98a6eb`)
+- Basemap switched from an OSM raster tile to GSI's (国土地理院) optimal
+  vector tiles, matching mgrs-pmtiles' own viewer. The MGRS grid frame
+  lines (100km/10km/1km/100m) are now drawn in-map (replacing the
+  zero-opacity loader layers), along with the 100km-square "alphabet"
+  centroid labels at low zoom. Numeric edge annotations remain
+  sidebar-only. Required bumping `maplibre-gl` to `5.24.0` and adding
+  `pmtiles` (protocol registration for GSI's `pmtiles://` vector
+  source). See DECISIONS.md D9.
 
 ### Fixed
 - `createAttachbar(...).destroy()` now cancels any pending throttled

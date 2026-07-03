@@ -197,3 +197,55 @@ container's total width/height, which isn't shipped in Phase 1 (D3).
 `.attachbar-sidebar--*` (CSS can still override background, border,
 font, etc.). This removes the CSS/JS sync hazard entirely instead of
 papering over it.
+
+---
+
+## D9: Show the MGRS grid frame and the 100km "alphabet" centroid labels in-map; switch to GSI's basemap
+
+**Date**: 2026-07-03
+
+**Context**: Feedback after reviewing the GitHub Pages demo: (1) the
+basemap should be GSI's (国土地理院) optimal vector tiles, same as
+mgrs-pmtiles' own viewer, not a generic OSM raster; (2) while the
+numeric edge annotations should stay sidebar-only (D5), the grid's frame
+lines themselves should be visible in-map, and the 100km-square centroid
+labels ("alphabet" 2-letter square IDs, e.g. "VN") should render in-map
+at low zoom — matching mgrs-pmtiles' own `centroidLabelSpecs`, since
+those have no edge-oriented variant to hand off (D6).
+
+**Decision**:
+- Fetch and merge GSI's `optimal_bvmap/style/std.json`, same as
+  mgrs-pmtiles' `web/main.js`. Its vector source uses `pmtiles://` URLs,
+  so the `pmtiles` package's `Protocol` must be registered via
+  `maplibregl.addProtocol` before the map is created — this was missed
+  on the first pass and produced `URL scheme "pmtiles" is not
+  supported` errors with a blank basemap; fixed by mirroring
+  mgrs-pmtiles' own protocol registration.
+- Add visible `mgrs_{100km,10km,1km,100m}` line layers (matching
+  mgrs-pmtiles' `overlayLayers` styling: `#003399`, zoom-interpolated
+  width) in place of the earlier zero-opacity "loader" layers from D5 —
+  these now double as both the visible grid frame and the tile-loading
+  trigger for `MgrsSourceProvider`'s `querySourceFeatures()`.
+- Add the `mgrs-100km-label` symbol layer (source-layer
+  `mgrs_100km_label_points`, minzoom 5–8) for the in-map alphabet
+  labels. Deliberately still not adding the `*_label_{e,n}` edge symbol
+  layers — those numeric values remain sidebar-only.
+- On fonts: initially assumed (matching MapLibre's older
+  `localIdeographFontFamily`, which is CJK-only) that omitting
+  `style.glyphs` would leave the centroid labels' Latin characters
+  unrendered, and considered keeping GSI's real glyphs URL to be safe.
+  User feedback and research into MapLibre GL JS
+  ([PR #4564](https://github.com/maplibre/maplibre-gl-js/pull/4564),
+  merged 2025-10-31) confirmed that recent versions render **all**
+  `text-field` content locally via TinySDF when `glyphs` is absent, not
+  just CJK ranges — matching mgrs-pmtiles' own approach of omitting
+  `glyphs` entirely. Verified live: `mgrs-100km-label` renders real text
+  ("UQ", "VQ", "WQ", ...) with no glyphs URL configured. This required
+  bumping `maplibre-gl` in the example from `^4.0.0` (resolved to
+  4.7.1, released 2024-09, predates the PR) to `5.24.0` — the same
+  version mgrs-pmtiles itself depends on.
+
+**Consequence**: The example now depends on `pmtiles` and a much newer
+`maplibre-gl`. The corner-reservation fix (D8) continues to apply
+unchanged since it only concerns attachbar's own sidebars, not the
+in-map grid/basemap.

@@ -107,8 +107,11 @@ packages/
   dom-renderer/      Sidebar DOM management and label placement.
   maplibre-adapter/  MapLibre event wiring + createAttachbar entry point.
 examples/
-  mgrs-pmtiles/      Reference integration reading real MGRS grid labels
-                     from mgrs-pmtiles' live vector tileset. Builds to
+  mgrs-pmtiles/      Reference integration on a GSI vector basemap,
+                     reading real MGRS grid labels from mgrs-pmtiles'
+                     live vector tileset. In-map: GSI basemap, grid
+                     frame lines, 100km centroid labels (D9). Sidebar
+                     only: numeric edge annotations (D5). Builds to
                      ../../docs for GitHub Pages.
 ```
 

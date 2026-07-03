@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@attachbar/maplibre-adapter": "*",
-    "maplibre-gl": "^4.0.0"
+    "maplibre-gl": "5.24.0",
+    "pmtiles": "4.4.1"
   },
   "devDependencies": {
     "typescript": "*",
