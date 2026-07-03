@@ -63,6 +63,8 @@ async function main(): Promise<void> {
   const map = new maplibregl.Map({
     container: mapEl,
     style,
+    // Sync map position/zoom to the URL hash so views are shareable.
+    hash: "hash",
     // Hokkaido — the primary proving ground for MGRS marginal labels (see
     // HANDOVER.md §3) and the area covered by the mgrs-hokkaido tileset.
     center: [141.3545, 43.0618],
